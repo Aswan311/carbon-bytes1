@@ -4,6 +4,7 @@ import {
   CircularProgress, Box 
 } from '@mui/material';
 import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { Html5Qrcode } from "html5-qrcode";
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,14 +15,13 @@ const QRScanner = () => {
   const [machineId, setMachineId] = useState(null);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [qrScanner, setQrScanner] = useState(null);
 
   // Handle QR code scanning
   const handleScan = async (data) => {
     if (data && !connected) {
       try {
         setScanning(false);
-        
-        // Check if QR code is valid machine ID
         const machineRef = doc(db, 'machines', data);
         const machineDoc = await getDoc(machineRef);
         
@@ -30,7 +30,6 @@ const QRScanner = () => {
           return;
         }
         
-        // Update machine with user session
         await updateDoc(machineRef, {
           currentSession: currentUser.uid,
           lastActive: serverTimestamp(),
@@ -39,7 +38,7 @@ const QRScanner = () => {
         
         setMachineId(data);
         setConnected(true);
-        setCountdown(120); // 2 minutes
+        setCountdown(120);
       } catch (error) {
         console.error("Error connecting to machine:", error);
         setError('Failed to connect to machine. Please try again.');
@@ -47,16 +46,32 @@ const QRScanner = () => {
     }
   };
 
-  // Handle QR code errors
   const handleError = (err) => {
     console.error(err);
     setError('Error accessing camera. Please check permissions.');
   };
 
-  // Start scanning
+  // Start QR code scanning
   const startScan = () => {
-    setScanning(true);
     setError('');
+    setScanning(true);
+
+    if (!qrScanner) {
+      const html5QrCode = new Html5Qrcode("qr-video");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText) => {
+          handleScan(decodedText);
+          html5QrCode.stop();
+        },
+        handleError
+      ).catch(err => handleError(err));
+      setQrScanner(html5QrCode);
+    }
   };
 
   // Disconnect from machine
@@ -77,20 +92,20 @@ const QRScanner = () => {
     setMachineId(null);
   };
 
-  // Countdown timer for auto-disconnect (continued)
-useEffect(() => {
+  // Countdown timer for auto-disconnect
+  useEffect(() => {
     let interval;
     if (connected && countdown > 0) {
       interval = setInterval(() => {
-        setCountdown(prevCount => prevCount - 1);
+        setCountdown(prev => prev - 1);
       }, 1000);
     } else if (countdown === 0 && connected) {
       disconnect();
     }
     return () => clearInterval(interval);
   }, [connected, countdown]);
-  
-  // Check for activity
+
+  // Activity checker to refresh session
   useEffect(() => {
     let activityChecker;
     if (connected && machineId) {
@@ -100,27 +115,22 @@ useEffect(() => {
           const machineDoc = await getDoc(machineRef);
           
           if (machineDoc.exists()) {
-            const data = machineDoc.data();
-            if (data.lastActive) {
-              const lastActiveTime = data.lastActive.toDate();
+            const lastActive = machineDoc.data().lastActive?.toDate();
+            if (lastActive) {
               const now = new Date();
-              const diffInMinutes = (now - lastActiveTime) / 1000 / 60;
-              
-              if (diffInMinutes <= 2) {
-                // Reset countdown if there's activity
-                setCountdown(120);
-              }
+              const diffInMinutes = (now - lastActive) / 1000 / 60;
+              if (diffInMinutes <= 2) setCountdown(120);
             }
           }
         } catch (error) {
           console.error("Error checking activity:", error);
         }
-      }, 10000); // Check every 10 seconds
+      }, 10000);
     }
-    
+
     return () => clearInterval(activityChecker);
   }, [connected, machineId]);
-  
+
   return (
     <Container maxWidth="sm" style={{ marginTop: '2rem' }}>
       <Paper elevation={3} style={{ padding: '2rem' }}>
@@ -136,10 +146,8 @@ useEffect(() => {
         
         {connected ? (
           <Box display="flex" flexDirection="column" alignItems="center">
-            <Typography variant="h6" gutterBottom>
-              Connected to Machine
-            </Typography>
-            <Typography variant="body1" gutterBottom>
+            <Typography variant="h6">Connected to Machine</Typography>
+            <Typography variant="body1">
               Time remaining: {Math.floor(countdown / 60)}:{countdown % 60 < 10 ? '0' : ''}{countdown % 60}
             </Typography>
             <Button 
@@ -153,15 +161,7 @@ useEffect(() => {
           </Box>
         ) : scanning ? (
           <Box display="flex" flexDirection="column" alignItems="center">
-            <div style={{ width: '100%', maxWidth: '300px', height: '300px', background: '#f0f0f0', margin: '1rem auto', position: 'relative' }}>
-              <video 
-                id="qr-video" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                autoPlay 
-                playsInline
-              />
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: '2px solid #4caf50', boxSizing: 'border-box' }} />
-            </div>
+            <div id="qr-video" style={{ width: '250px', height: '250px', margin: '1rem auto', backgroundColor: '#f0f0f0' }} />
             <Button 
               variant="contained" 
               color="primary" 
@@ -173,7 +173,11 @@ useEffect(() => {
           </Box>
         ) : (
           <Box display="flex" justifyContent="center" marginTop="1rem">
-            <Button variant="contained" color="primary" onClick={startScan}>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={startScan}
+            >
               Start Scanning
             </Button>
           </Box>
@@ -182,4 +186,5 @@ useEffect(() => {
     </Container>
   );
 };
+
 export default QRScanner;
