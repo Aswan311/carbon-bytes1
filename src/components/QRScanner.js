@@ -51,26 +51,36 @@ const QRScanner = () => {
     setError('Error accessing camera. Please check permissions.');
   };
 
-  // Start QR code scanning
-  const startScan = () => {
+  // Start QR code scanning with permission request
+  const startScan = async () => {
     setError('');
     setScanning(true);
 
-    if (!qrScanner) {
-      const html5QrCode = new Html5Qrcode("qr-video");
-      html5QrCode.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
-        (decodedText) => {
-          handleScan(decodedText);
-          html5QrCode.stop();
-        },
-        handleError
-      ).catch(err => handleError(err));
-      setQrScanner(html5QrCode);
+    try {
+      // Request camera permission
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop()); // Close the stream after checking permission
+
+      if (!qrScanner) {
+        const html5QrCode = new Html5Qrcode("qr-video");
+        html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+          },
+          (decodedText) => {
+            handleScan(decodedText);
+            html5QrCode.stop();
+          },
+          handleError
+        ).catch(err => handleError(err));
+        setQrScanner(html5QrCode);
+      }
+    } catch (error) {
+      console.error("Camera permission denied or unavailable:", error);
+      setError('Camera access denied or unavailable. Please check permissions.');
+      setScanning(false);
     }
   };
 
@@ -148,7 +158,8 @@ const QRScanner = () => {
           <Box display="flex" flexDirection="column" alignItems="center">
             <Typography variant="h6">Connected to Machine</Typography>
             <Typography variant="body1">
-              Time remaining: {Math.floor(countdown / 60)}:{countdown % 60 < 10 ? '0' : ''}{countdown % 60}
+              Time remaining: {Math.floor(countdown / 60)}:
+              {countdown % 60 < 10 ? '0' : ''}{countdown % 60}
             </Typography>
             <Button 
               variant="contained" 
