@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, Avatar } from '@material-ui/core';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -26,9 +26,24 @@ const Header = () => {
               <Button color="inherit" component={Link} to="/leaderboard">
                 Leaderboard
               </Button>
+              <Button 
+                color="inherit" 
+                component={Link} 
+                to="/profile"
+                style={{ marginRight: '8px' }}
+              >
+                Profile
+              </Button>
               <Button color="inherit" onClick={logout}>
                 Logout
               </Button>
+              <Link to="/profile">
+                <Avatar 
+                  src={currentUser.photoURL} 
+                  alt={currentUser.displayName}
+                  style={{ width: '32px', height: '32px', marginLeft: '8px', cursor: 'pointer' }}
+                />
+              </Link>
             </>
           ) : (
             <Button color="inherit" component={Link} to="/login">

@@ -1,170 +1,203 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Container, Typography, Paper, Grid, Box, 
-  CircularProgress, Card, CardContent, Divider 
+  CircularProgress, Card, CardContent 
 } from '@mui/material';
-import { collection, query, where, orderBy, limit, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { 
+  collection, query, where, orderBy, limit, 
+  getDocs, doc, getDoc 
+} from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Bar } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
-  const [userData, setUserData] = useState(null);
+  const [userPoints, setUserPoints] = useState(0);
   const [transactions, setTransactions] = useState([]);
+  const [wasteStats, setWasteStats] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!currentUser) return;
-
-    // Get user data
-    const userRef = doc(db, 'users', currentUser.uid);
-    const unsubscribeUser = onSnapshot(userRef, (doc) => {
-      if (doc.exists()) {
-        setUserData(doc.data());
+    const fetchUserData = async () => {
+      try {
+        if (!currentUser) return;
+        
+        // Get user data
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          setUserPoints(userDoc.data().points || 0);
+        }
+        
+        // Get recent transactions
+        const transactionsRef = collection(db, 'transactions');
+        const q = query(
+          transactionsRef,
+          where('userId', '==', currentUser.uid),
+          orderBy('timestamp', 'desc'),
+          limit(10)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const transactionsList = [];
+        const wasteTypeCount = {};
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          transactionsList.push({
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate()
+          });
+          
+          // Count waste types
+          const wasteType = data.wasteType;
+          wasteTypeCount[wasteType] = (wasteTypeCount[wasteType] || 0) + 1;
+        });
+        
+        setTransactions(transactionsList);
+        setWasteStats(wasteTypeCount);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setLoading(false);
       }
-    });
-
-    // Get recent transactions
-    const transactionsRef = collection(db, 'transactions');
-    const q = query(
-      transactionsRef,
-      where('userId', '==', currentUser.uid),
-      orderBy('timestamp', 'desc'),
-      limit(10)
-    );
-    
-    const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-      const transactionData = [];
-      snapshot.forEach((doc) => {
-        transactionData.push({ id: doc.id, ...doc.data() });
-      });
-      setTransactions(transactionData);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeUser();
-      unsubscribeTransactions();
     };
+    
+    fetchUserData();
   }, [currentUser]);
 
   // Prepare chart data
-  const wasteData = transactions.reduce((acc, transaction) => {
-    const wasteType = transaction.wasteType;
-    if (!acc[wasteType]) {
-      acc[wasteType] = 0;
-    }
-    acc[wasteType]++;
-    return acc;
-  }, {});
-
   const chartData = {
-    labels: Object.keys(wasteData),
+    labels: Object.keys(wasteStats),
     datasets: [
       {
-        label: 'Waste Type Distribution',
-        data: Object.values(wasteData),
+        data: Object.values(wasteStats),
         backgroundColor: [
-          'rgba(75, 192, 192, 0.6)',
-          'rgba(153, 102, 255, 0.6)',
-          'rgba(255, 159, 64, 0.6)',
-          'rgba(255, 99, 132, 0.6)',
-          'rgba(54, 162, 235, 0.6)',
-        ],
-        borderColor: [
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)',
-          'rgba(255, 159, 64, 1)',
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
+          '#4CAF50', // Green for paper
+          '#2196F3', // Blue for plastic
+          '#FFC107', // Yellow for metal
+          '#9C27B0', // Purple for glass
+          '#FF5722', // Orange for organic
         ],
         borderWidth: 1,
       },
     ],
   };
 
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+      },
+    },
+  };
+
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="70vh">
+      <Container style={{ display: 'flex', justifyContent: 'center', marginTop: '50px' }}>
         <CircularProgress />
-      </Box>
+      </Container>
     );
   }
 
   return (
-    <Container maxWidth="lg" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-      <Typography variant="h4" gutterBottom>Dashboard</Typography>
-      
+    <Container maxWidth="md" style={{ marginTop: '20px' }}>
       <Grid container spacing={3}>
-        {/* User Info Card */}
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} style={{ padding: '1.5rem' }}>
-            <Box display="flex" alignItems="center" flexDirection="column">
-              <img 
-                src={currentUser.photoURL || 'https://via.placeholder.com/100'} 
-                alt="Profile" 
-                style={{ width: '80px', height: '80px', borderRadius: '50%', marginBottom: '1rem' }}
-              />
-              <Typography variant="h5">{userData?.displayName || currentUser.displayName}</Typography>
-              <Typography variant="body2" color="textSecondary">{currentUser.email}</Typography>
-              <Box marginTop="1rem" width="100%">
-                <Divider />
-              </Box>
-              <Typography variant="h4" style={{ marginTop: '1rem', color: '#4caf50' }}>
-                {userData?.points || 0} points
+        <Grid item xs={12}>
+          <Paper elevation={3} style={{ padding: '20px', backgroundColor: '#f5f9f5' }}>
+            <Typography variant="h4" style={{ color: '#2e7d32' }}>
+              Welcome to Carbon Bytes!
+            </Typography>
+            <Typography variant="body1" style={{ marginTop: '10px' }}>
+              Thank you for contributing to a cleaner environment. Your small actions make a big difference!
+            </Typography>
+          </Paper>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>
+                Your Points
+              </Typography>
+              <Typography variant="h3" style={{ color: '#2e7d32' }}>
+                {userPoints}
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                Withdrawal feature coming soon!
+                Keep recycling to earn more points!
               </Typography>
-            </Box>
-          </Paper>
+              <Box mt={2}>
+                <Typography variant="body2">
+                  Points can be redeemed for rewards (Coming Soon)
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
         
-        {/* Waste Distribution Chart */}
-        <Grid item xs={12} md={8}>
-          <Paper elevation={3} style={{ padding: '1.5rem' }}>
-            <Typography variant="h6" gutterBottom>Your Waste Distribution</Typography>
-            <Box height="250px">
-              <Bar data={chartData} options={{ maintainAspectRatio: false }} />
-            </Box>
-          </Paper>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>
+                Waste Breakdown
+              </Typography>
+              <Box height={200}>
+                {Object.keys(wasteStats).length > 0 ? (
+                  <Doughnut data={chartData} options={chartOptions} />
+                ) : (
+                  <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                    <Typography variant="body1" color="textSecondary">
+                      No waste data available yet
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
         
-        {/* Recent Transactions */}
         <Grid item xs={12}>
-          <Paper elevation={3} style={{ padding: '1.5rem' }}>
-            <Typography variant="h6" gutterBottom>Recent Transactions</Typography>
-            {transactions.length === 0 ? (
-              <Typography variant="body1">No recent transactions found.</Typography>
-            ) : (
-              <Grid container spacing={2}>
-                {transactions.map((transaction) => (
-                  <Grid item xs={12} md={6} key={transaction.id}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Grid container spacing={2}>
-                          <Grid item xs={8}>
-                            <Typography variant="h6" style={{ textTransform: 'capitalize' }}>
-                              {transaction.wasteType}
-                            </Typography>
-                            <Typography variant="body2" color="textSecondary">
-                              {transaction.timestamp?.toDate().toLocaleString() || 'Unknown date'}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={4}>
-                            <Typography variant="h6" align="right" style={{ color: '#4caf50' }}>
-                              +{transaction.points} pts
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Paper>
+          <Card>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>
+                Recent Activity
+              </Typography>
+              {transactions.length > 0 ? (
+                transactions.map((transaction) => (
+                  <Paper 
+                    key={transaction.id} 
+                    elevation={1} 
+                    style={{ padding: '10px', marginBottom: '10px' }}
+                  >
+                    <Grid container justifyContent="space-between" alignItems="center">
+                      <Grid item>
+                        <Typography variant="body1">
+                          {transaction.wasteType.charAt(0).toUpperCase() + transaction.wasteType.slice(1)}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {transaction.timestamp?.toLocaleDateString()} {transaction.timestamp?.toLocaleTimeString()}
+                        </Typography>
+                      </Grid>
+                      <Grid item>
+                        <Typography variant="body1" style={{ color: '#2e7d32', fontWeight: 'bold' }}>
+                          +{transaction.points} points
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                ))
+              ) : (
+                <Typography variant="body1" color="textSecondary">
+                  No recent activity
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
     </Container>

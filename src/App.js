@@ -1,87 +1,62 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-
-// Components and Pages
+import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
-import Home from './pages/Home';
-import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
 import QRScanner from './components/QRScanner';
 import Leaderboard from './pages/Leaderboard';
+import Profile from './pages/Profile'; // Import the new Profile component
 
-// Private Route component
+// Private route component
 const PrivateRoute = ({ children }) => {
   const { currentUser } = useAuth();
-  
-  if (!currentUser) {
-    return <Navigate to="/login" />;
-  }
-  
-  return children;
+  return currentUser ? children : <Navigate to="/login" />;
 };
-
-// Theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#2e7d32', // Green
-    },
-    secondary: {
-      main: '#f44336', // Red
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-  },
-});
-
-function AppContent() {
-  return (
-    <Router>
-      <Header />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route 
-          path="/dashboard" 
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          } 
-        />
-        <Route 
-          path="/scan" 
-          element={
-            <PrivateRoute>
-              <QRScanner />
-            </PrivateRoute>
-          } 
-        />
-        <Route 
-          path="/leaderboard" 
-          element={
-            <PrivateRoute>
-              <Leaderboard />
-            </PrivateRoute>
-          } 
-        />
-      </Routes>
-    </Router>
-  );
-}
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <Router>
       <AuthProvider>
-        <AppContent />
+        <Header />
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route path="/login" element={<Login />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/scan" 
+            element={
+              <PrivateRoute>
+                <QRScanner />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/leaderboard" 
+            element={
+              <PrivateRoute>
+                <Leaderboard />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            } 
+          />
+        </Routes>
       </AuthProvider>
-    </ThemeProvider>
+    </Router>
   );
 }
 
