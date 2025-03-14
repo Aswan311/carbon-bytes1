@@ -3,12 +3,12 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "carbon-bytes.firebaseapp.com",
-  projectId: "carbon-bytes",
-  storageBucket: "carbon-bytes.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAVmc1LpVqETghg8V0ksWbeWc27fGKx71A",
+  authDomain: "carbon-bytes-32bde.firebaseapp.com",
+  projectId: "carbon-bytes-32bde",
+  storageBucket: "carbon-bytes-32bde.firebasestorage.app",
+  messagingSenderId: "783067000643",
+  appId: "1:783067000643:web:5df789f7b16a3c552b09f6"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -17,3 +17,4 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 export { auth, db, googleProvider };
+
