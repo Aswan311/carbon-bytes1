@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Avatar } from '@material-ui/core';
+import { AppBar, Toolbar, Typography, Button, Box, Avatar } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,6 +15,10 @@ const Header = () => {
           </Link>
         </Typography>
         <Box>
+          <Button color="inherit" component={Link} to="/">
+            Home
+          </Button>
+          
           {currentUser ? (
             <>
               <Button color="inherit" component={Link} to="/dashboard">

@@ -5,7 +5,7 @@ import {
   Button, Card, CardContent, Divider, Box,
   CircularProgress, List, ListItem, ListItemText,
   ListItemIcon
-} from '@material-ui/core';
+} from '@mui/material';
 import { 
   doc, getDoc, collection, query, where, 
   orderBy, limit, getDocs 
